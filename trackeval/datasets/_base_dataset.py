@@ -18,8 +18,6 @@ class _BaseDataset(ABC):
         self.class_list = None
         self.output_fol = None
         self.output_sub_fol = None
-        self.should_classes_combine = True
-        self.use_super_categories = False
 
     # Functions to implement:
 
@@ -44,11 +42,8 @@ class _BaseDataset(ABC):
     # Helper functions for all datasets:
 
     @classmethod
-    def get_class_name(cls):
+    def get_name(cls):
         return cls.__name__
-
-    def get_name(self):
-        return self.get_class_name()
 
     def get_output_fol(self, tracker):
         return os.path.join(self.output_fol, tracker, self.output_sub_fol)
@@ -286,7 +281,7 @@ class _BaseDataset(ABC):
             return ious
 
     @staticmethod
-    def _calculate_euclidean_similarity(dets1, dets2, zero_distance=2.0):
+    def _calculate_euclidean_similarity(dets1, dets2, zero_distance=50):
         """ Calculates the euclidean distance between two sets of detections, and then converts this into a similarity
         measure with values between 0 and 1 using the following formula: sim = max(0, 1 - dist/zero_distance).
         The default zero_distance of 2.0, corresponds to the default used in MOT15_3D, such that a 0.5 similarity

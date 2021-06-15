@@ -22,8 +22,8 @@ class MotChallenge2DBox(_BaseDataset):
             'OUTPUT_FOLDER': None,  # Where to save eval results (if None, same as TRACKERS_FOLDER)
             'TRACKERS_TO_EVAL': None,  # Filenames of trackers to eval (if None, all in folder)
             'CLASSES_TO_EVAL': ['pedestrian'],  # Valid: ['pedestrian']
-            'BENCHMARK': 'MOT17',  # Valid: 'MOT17', 'MOT16', 'MOT20', 'MOT15'
-            'SPLIT_TO_EVAL': 'train',  # Valid: 'train', 'test', 'all'
+            'BENCHMARK': 'surfrider',  # Valid: 'MOT17', 'MOT16', 'MOT20', 'MOT15'
+            'SPLIT_TO_EVAL': 'test',  # Valid: 'train', 'test', 'all'
             'INPUT_AS_ZIP': False,  # Whether tracker input files are zipped
             'PRINT_CONFIG': True,  # Whether to print current config
             'DO_PREPROC': True,  # Whether to perform preprocessing (never done for MOT15)
@@ -235,7 +235,7 @@ class MotChallenge2DBox(_BaseDataset):
                             'Cannot convert tracking data from tracker %s, sequence %s to float. Is data corrupted?' % (
                                 tracker, seq))
                 try:
-                    raw_data['dets'][t] = np.atleast_2d(time_data[:, 2:6])
+                    raw_data['dets'][t] = np.atleast_2d(time_data[:, 2:4])
                     raw_data['ids'][t] = np.atleast_1d(time_data[:, 1]).astype(int)
                 except IndexError:
                     if is_gt:
@@ -261,7 +261,7 @@ class MotChallenge2DBox(_BaseDataset):
                 else:
                     raw_data['tracker_confidences'][t] = np.atleast_1d(time_data[:, 6])
             else:
-                raw_data['dets'][t] = np.empty((0, 4))
+                raw_data['dets'][t] = np.empty((0, 2))
                 raw_data['ids'][t] = np.empty(0).astype(int)
                 raw_data['classes'][t] = np.empty(0).astype(int)
                 if is_gt:
@@ -270,7 +270,7 @@ class MotChallenge2DBox(_BaseDataset):
                 else:
                     raw_data['tracker_confidences'][t] = np.empty(0)
             if is_gt:
-                raw_data['gt_crowd_ignore_regions'][t] = np.empty((0, 4))
+                raw_data['gt_crowd_ignore_regions'][t] = np.empty((0, 2))
 
         if is_gt:
             key_map = {'ids': 'gt_ids',
@@ -433,5 +433,5 @@ class MotChallenge2DBox(_BaseDataset):
         return data
 
     def _calculate_similarities(self, gt_dets_t, tracker_dets_t):
-        similarity_scores = self._calculate_box_ious(gt_dets_t, tracker_dets_t, box_format='xywh')
+        similarity_scores = self._calculate_euclidean_similarity(gt_dets_t, tracker_dets_t, zero_distance=50.0)
         return similarity_scores
