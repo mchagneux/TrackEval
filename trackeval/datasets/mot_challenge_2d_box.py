@@ -433,5 +433,5 @@ class MotChallenge2DBox(_BaseDataset):
         return data
 
     def _calculate_similarities(self, gt_dets_t, tracker_dets_t):
-        similarity_scores = self._calculate_euclidean_similarity(gt_dets_t, tracker_dets_t, zero_distance=50.0)
+        similarity_scores = self._calculate_euclidean_similarity(gt_dets_t, tracker_dets_t, zero_distance=0.1*np.sqrt(1920**2+1080**2))
         return similarity_scores
