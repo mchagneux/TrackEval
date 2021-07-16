@@ -4,7 +4,7 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from ._base_metric import _BaseMetric
 from .. import _timing
-
+import pickle
 
 class HOTA(_BaseMetric):
     """Class which implements the HOTA metrics.
@@ -14,16 +14,20 @@ class HOTA(_BaseMetric):
     def __init__(self, config=None):
         super().__init__()
         self.plottable = True
-        self.array_labels = [0.5] #np.arange(0.05, 0.99, 0.05)
+        self.array_labels = np.arange(0.05, 0.99, 0.05)
         self.integer_array_fields = ['HOTA_TP', 'HOTA_FN', 'HOTA_FP']
         self.float_array_fields = ['HOTA', 'DetA', 'AssA', 'DetRe', 'DetPr', 'AssRe', 'AssPr', 'LocA', 'RHOTA']
         self.float_fields = ['HOTA(0)', 'LocA(0)', 'HOTALocA(0)']
         self.fields = self.float_array_fields + self.integer_array_fields + self.float_fields
         self.summary_fields = self.float_array_fields + self.float_fields
-
     @_timing.time
     def eval_sequence(self, data):
         """Calculates the HOTA metrics for one sequence"""
+
+        matches_gt_tracker_framewise = [[] for _ in range(len(self.array_labels))]
+        unmatched_gt_framewise = [[] for _ in range(len(self.array_labels))]
+        unmatched_tracker_framewise = [[] for _ in range(len(self.array_labels))]
+
 
         # Initialise results
         res = {}
@@ -74,10 +78,16 @@ class HOTA(_BaseMetric):
             if len(gt_ids_t) == 0:
                 for a, alpha in enumerate(self.array_labels):
                     res['HOTA_FP'][a] += len(tracker_ids_t)
+                    matches_gt_tracker_framewise[a].append(np.array([]))
+                    unmatched_gt_framewise[a].append(gt_ids_t)
+                    unmatched_tracker_framewise[a].append(tracker_ids_t)
                 continue
             if len(tracker_ids_t) == 0:
                 for a, alpha in enumerate(self.array_labels):
                     res['HOTA_FN'][a] += len(gt_ids_t)
+                    matches_gt_tracker_framewise[a].append(np.array([]))
+                    unmatched_gt_framewise[a].append(gt_ids_t)
+                    unmatched_tracker_framewise[a].append(tracker_ids_t)
                 continue
 
             # Get matching scores between pairs of dets for optimizing HOTA
@@ -93,12 +103,22 @@ class HOTA(_BaseMetric):
                 alpha_match_rows = match_rows[actually_matched_mask]
                 alpha_match_cols = match_cols[actually_matched_mask]
                 num_matches = len(alpha_match_rows)
+
                 res['HOTA_TP'][a] += num_matches
                 res['HOTA_FN'][a] += len(gt_ids_t) - num_matches
                 res['HOTA_FP'][a] += len(tracker_ids_t) - num_matches
+
                 if num_matches > 0:
                     res['LocA'][a] += sum(similarity[alpha_match_rows, alpha_match_cols])
                     matches_counts[a][gt_ids_t[alpha_match_rows], tracker_ids_t[alpha_match_cols]] += 1
+                    matches_gt_tracker_framewise[a].append(np.concatenate([gt_ids_t[alpha_match_rows], tracker_ids_t[alpha_match_cols]]))
+                    unmatched_gt_framewise[a].append(np.delete(gt_ids_t, alpha_match_rows))
+                    unmatched_tracker_framewise[a].append(np.delete(tracker_ids_t, alpha_match_cols))
+                else:
+                    matches_gt_tracker_framewise[a].append(np.array([]))
+                    unmatched_gt_framewise[a].append(gt_ids_t)
+                    unmatched_tracker_framewise[a].append(tracker_ids_t)
+
 
         # Calculate association scores (AssA, AssRe, AssPr) for the alpha value.
         # First calculate scores per gt_id/tracker_id combo and then average over the number of detections.
@@ -114,7 +134,10 @@ class HOTA(_BaseMetric):
         # Calculate final scores
         res['LocA'] = np.maximum(1e-10, res['LocA']) / np.maximum(1e-10, res['HOTA_TP'])
         res = self._compute_final_fields(res)
-        return res
+        with open('{}_{}_framewise_results.pickle'.format(data['tracker'],data['seq']),'wb') as f: 
+            framewise_results = (matches_gt_tracker_framewise, unmatched_tracker_framewise, unmatched_gt_framewise)
+            pickle.dump(framewise_results, f)
+        return res 
 
     def combine_sequences(self, all_res):
         """Combines metrics across all sequences"""

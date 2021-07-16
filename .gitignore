@@ -8,3 +8,5 @@ data/*
 **/__pycache__
 .idea
 error_log.txt
+*.pdf
+framewise_results/
