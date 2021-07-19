@@ -134,7 +134,8 @@ class HOTA(_BaseMetric):
         # Calculate final scores
         res['LocA'] = np.maximum(1e-10, res['LocA']) / np.maximum(1e-10, res['HOTA_TP'])
         res = self._compute_final_fields(res)
-        with open('{}_{}_framewise_results.pickle'.format(data['tracker'],data['seq']),'wb') as f: 
+        output_filename = f"{data['tracker']}_{data['seq']}.pickle"
+        with open(os.path.join('framewise_results',output_filename),'wb') as f: 
             framewise_results = (matches_gt_tracker_framewise, unmatched_tracker_framewise, unmatched_gt_framewise)
             pickle.dump(framewise_results, f)
         return res 

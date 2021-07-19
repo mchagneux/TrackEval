@@ -3,19 +3,14 @@ import os
 import matplotlib.pyplot as plt
 import pickle 
 import numpy as np 
-tracker_names = ['fairmot_cleaned','sort','ours_cleaned','ours']
-eval_dir_part_1 = 'data/trackers/surfrider_part_1_only'
-eval_dir_all = 'data/trackers/surfrider_long_segments'
-eval_dir_short = 'data/trackers/surfrider_short_segments'
-long_segments_names = ['part_1_1','part_1_2','part_2','part_3']
+
 
 _round = lambda x: 100*round(x,3)
 
+def get_det_values(fps):
 
-def get_det_values():
-
-    results_p1_ours =  pd.read_csv(os.path.join(eval_dir_part_1,'surfrider-test','ours','pedestrian_detailed.csv'))
-    all_results_ours = pd.read_csv(os.path.join(eval_dir_all,'surfrider-test','ours','pedestrian_detailed.csv'))
+    results_p1_ours =  pd.read_csv(os.path.join(eval_dir_part_1,'surfrider-test',f'ours_{fps}_tau_0','pedestrian_detailed.csv'))
+    all_results_ours = pd.read_csv(os.path.join(eval_dir_all,'surfrider-test',f'ours_{fps}_tau_0','pedestrian_detailed.csv'))
     
     det_re_p1 = _round(results_p1_ours.loc[2,'DetRe___50'])
     det_pr_p1 = _round(results_p1_ours.loc[2,'DetPr___50'])
@@ -31,7 +26,6 @@ def get_det_values():
 
     print(f"{det_re_p1} & {det_pr_p1}\n{det_re_p2} & {det_pr_p2}\n{det_re_p3} & {det_pr_p3}\n{det_re_cb} & {det_pr_cb}\n")
 
-
 def get_ass_re_values(tracker_name):
 
     results_p1 =   pd.read_csv(os.path.join(eval_dir_part_1,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
@@ -46,32 +40,32 @@ def get_ass_re_values(tracker_name):
 
     return [ass_re_p1,ass_re_p2,ass_re_p3,ass_re_cb]
 
+def generate_box_plots(fps, tau, tracker_new_names=None):
 
-def generate_box_plots(tracker_new_names=None):
+    all_results = {tracker_name:pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in ['fairmot_cleaned','sort', f'ours_{fps}_{tau}']}
 
-    all_results = {tracker_name:pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in ['fairmot_cleaned','sort','ours_cleaned']}
-
-    print(all_results)
+    # print(all_results)
     count_errors = pd.DataFrame({tracker_name: pd.Series((results['IDs'][:-1]-results['GT_IDs'][:-1])) \
         for tracker_name,results in all_results.items()})
     # count_errors_relative.drop(labels=[29],inplace=True)
 
-    print(count_errors)
+    # print(count_errors)
     # fig, ax = plt.subplots(1,1,figsize=(10,10))
     count_errors.columns = tracker_new_names
     # ax = count_errors.boxplot(ax=ax)
-    plt.plot(count_errors.T, linestyle='dashed')
-    plt.boxplot(count_errors.T, positions=[0,1,2], labels=tracker_new_names)
+    # plt.plot(count_errors.T, linestyle='dashed')
+    # plt.boxplot(count_errors.T, positions=[0,1,2], labels=tracker_new_names)
+    count_errors.boxplot()
 
     # plt.suptitle('Box plot on 17 independant short sequences from T1')
     plt.ylabel(r'$\hat{N}-N}$')
     # plt.gca().get_xaxis().set_visible(False)
     plt.tight_layout()
-    # plt.savefig('boxplot.pdf',format='pdf')
-    plt.show()
-
+    plt.savefig(f'boxplot_{fps}.pdf',format='pdf')
+    # plt.show()
 
 def get_count_err_mean_and_std_values(tracker_name):
+
     results_long_part_1 = pd.read_csv(os.path.join(eval_dir_part_1,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
     all_results_long = pd.read_csv(os.path.join(eval_dir_all,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
     all_results_shorts = pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
@@ -96,18 +90,18 @@ def get_count_err_mean_and_std_values(tracker_name):
 
     print(f"{count_errors_part_1} & {count_err_mean_p1} & {count_err_std_p1}\n{count_errors_part_2} & {count_err_mean_p2} & {count_err_std_p2}\n{count_errors_part_3} & {count_err_mean_p3} & {count_err_std_p3}\n{count_errors_combined} & {count_err_mean_cb} & {count_err_std_cb}\n")
 
-def print_ass_re_for_trackers():
+def print_ass_re_for_trackers(fps, tau):
 
     ass_re_sort = get_ass_re_values('sort')
-    ass_re_ours = get_ass_re_values('ours')
-    ass_re_fairmot = get_ass_re_values('fairmot')
+    ass_re_ours = get_ass_re_values(f'ours_{fps}_{tau}')
+    ass_re_fairmot = get_ass_re_values('fairmot_cleaned')
 
     plt.scatter(['Part 1', 'Part 2', 'Part 3', 'Combined'], ass_re_sort, marker='x', label='Sort')
-    plt.plot(ass_re_sort[:-1], ls='--')
+    plt.plot(ass_re_sort, ls='--')
     plt.scatter(['Part 1', 'Part 2', 'Part 3', 'Combined'], ass_re_ours, marker='o', label='Ours')
-    plt.plot(ass_re_ours[:-1], ls='--')
+    plt.plot(ass_re_ours, ls='--')
     plt.scatter(['Part 1', 'Part 2', 'Part 3', 'Combined'], ass_re_fairmot, marker='+',label='FairMOT*')
-    plt.plot(ass_re_fairmot[:-1], ls='--')
+    plt.plot(ass_re_fairmot, ls='--')
     plt.legend()
     plt.ylabel('AssRe')
     plt.tight_layout()
@@ -115,7 +109,6 @@ def print_ass_re_for_trackers():
     # plt.show()
 
     plt.savefig('ass_re_graphical.pdf',type='pdf')
-
 
 def compute_new_fp_t(unmatched_tracker_ids):
     already_seen_tracker_ids = []
@@ -127,7 +120,7 @@ def compute_new_fp_t(unmatched_tracker_ids):
                 already_seen_tracker_ids.append(tracker_id)
     return new_fp_t
 
-def plot_framewise_TPs():
+def plot_framewise_TPs(fps):
     fps = 12
     framewise_results = dict()
     for tracker_name in tracker_names:
@@ -148,13 +141,45 @@ def plot_framewise_TPs():
     plt.legend()
     plt.show()          
     
+def generate_boxplots_to_compare_tau(tau_values):
+    tracker_names = ['fairmot','fairmot_cleaned','sort'] + [f'ours_{fps}_tau_{tau}' for tau in tau_values]
+    tracker_new_names = ['FairMOT','FairMOT*','SORT'] + [f"$Ours_{tau}$" for tau in tau_values]
+
+    all_results = {tracker_name:pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in tracker_names}
+
+    # print(all_results)
+    count_errors = pd.DataFrame({tracker_name: pd.Series((results['IDs'][:-1]-results['GT_IDs'][:-1])) \
+        for tracker_name,results in all_results.items()})
+
+    count_errors.columns = tracker_new_names
+    # ax = count_errors.boxplot(ax=ax)
+    # plt.plot(count_errors.T, linestyle='dashed')
+    count_errors.boxplot()
+
+    # plt.suptitle('Box plot on 17 independant short sequences from T1')
+    plt.ylabel(r'$\hat{N}-N}$')
+    # plt.gca().get_xaxis().set_visible(False)
+    plt.tight_layout()
+    plt.savefig(f'boxplot_tau_{fps}.pdf',format='pdf')
+    # plt.show()
+    
 if __name__ == '__main__':
 
-    # get_det_values()
-    # get_ass_re_values('ours_cleaned')
-    # get_count_err_mean_and_std_values('ours_cleaned')
-    # generate_box_plots(tracker_new_names=['FairMOT*','SORT','Ours'])
+    fps = 6
+    tau = 'tau_6' if fps == 12 else 'tau_3'
+    tau_values = [0,2,4,6,8,10] if fps == 12 else [0,1,2,3,4,5] 
+    fps = f'{fps}fps'
+    eval_dir_part_1 = 'data/trackers/surfrider_part_1_only_' + fps
+    eval_dir_all = 'data/trackers/surfrider_long_segments_' + fps
+    eval_dir_short = 'data/trackers/surfrider_short_segments_' + fps
+    long_segments_names = ['part_1_1','part_1_2','part_2','part_3']
+    # get_det_values(fps)
+    # get_ass_re_values(f'ours_{fps}_{tau}')
+    # get_count_err_mean_and_std_values(f'ours_{fps}_{tau}')
+    # generate_box_plots(fps, tau, tracker_new_names=['FairMOT*','SORT','Ours'])
 
-    # print_ass_re_for_trackers()
+    # print_ass_re_for_trackers(fps, tau)
 
-    plot_framewise_TPs()
+    # plot_framewise_TPs()
+
+    # generate_boxplots_to_compare_tau(tau_values)
