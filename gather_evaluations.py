@@ -163,9 +163,45 @@ def generate_boxplots_to_compare_tau(tau_values):
     plt.savefig(f'boxplot_tau_{fps}.pdf',format='pdf')
     # plt.show()
     
+def compare_with_humans(human_counts_filename, tracker_names):
+
+
+    tracker_results = []
+    for tracker_name in tracker_names: 
+        results_long_part_1 = pd.read_csv(os.path.join(eval_dir_part_1,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
+        all_results_long = pd.read_csv(os.path.join(eval_dir_all,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
+        gt_part_1 = results_long_part_1['GT_IDs'][2]
+        count_part_1 = results_long_part_1['IDs'][2]
+
+        gt_part_2 = all_results_long['GT_IDs'][2]
+        count_part_2 = all_results_long['IDs'][2]
+
+        gt_part_3 = all_results_long['GT_IDs'][3]
+        count_part_3 = all_results_long['IDs'][3]
+        tracker_results.append((count_part_1,count_part_2,count_part_3))
+    
+    tracker_results.append((gt_part_1,gt_part_2,gt_part_3))
+
+
+    with open(human_counts_filename,'r') as f:
+        human_counts = pd.read_csv(f,sep=',')
+    
+    human_counts = [human_counts.groupby('troncons').get_group(troncon).loc[:,'comptages'] for troncon in ['t1','t2','t3']]
+
+    plt.boxplot(human_counts, labels=['Part 1','Part 2','Part 3'])
+    plt.scatter([1,2,3],tracker_results[0], marker='x', label='FairMOT*')
+    plt.scatter([1,2,3],tracker_results[1],  marker='o', label='SORT')
+    plt.scatter([1,2,3],tracker_results[2],  marker='+', label='Ours')
+    plt.scatter([1,2,3],tracker_results[3], marker='*',label='Count from video')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('boxplot_humans.pdf',format='pdf')
+    # plt.show()
+
+
 if __name__ == '__main__':
 
-    fps = 6
+    fps = 12
     tau = 'tau_6' if fps == 12 else 'tau_3'
     tau_values = [0,2,4,6,8,10] if fps == 12 else [0,1,2,3,4,5] 
     fps = f'{fps}fps'
@@ -173,6 +209,7 @@ if __name__ == '__main__':
     eval_dir_all = 'data/trackers/surfrider_long_segments_' + fps
     eval_dir_short = 'data/trackers/surfrider_short_segments_' + fps
     long_segments_names = ['part_1_1','part_1_2','part_2','part_3']
+    compare_with_humans('comptages_auterrive2021.csv',tracker_names=['fairmot_cleaned','sort',f'ours_{fps}_{tau}'])
     # get_det_values(fps)
     # get_ass_re_values(f'ours_{fps}_{tau}')
     # get_count_err_mean_and_std_values(f'ours_{fps}_{tau}')
@@ -181,5 +218,4 @@ if __name__ == '__main__':
     # print_ass_re_for_trackers(fps, tau)
 
     # plot_framewise_TPs()
-
     # generate_boxplots_to_compare_tau(tau_values)
