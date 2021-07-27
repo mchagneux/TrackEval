@@ -1,11 +1,16 @@
+from itertools import count
 import pandas as pd
 import os 
 import matplotlib.pyplot as plt
 import pickle 
 import numpy as np 
-
+import seaborn as sns 
 
 _round = lambda x: 100*round(x,3)
+eval_dir_part_1 = None
+eval_dir_all = None
+eval_dir_short = None
+long_segments_names = None
 
 def get_det_values(fps):
 
@@ -55,25 +60,39 @@ def generate_box_plots(fps, tau, tracker_new_names=None):
     # ax = count_errors.boxplot(ax=ax)
     # plt.plot(count_errors.T, linestyle='dashed')
     # plt.boxplot(count_errors.T, positions=[0,1,2], labels=tracker_new_names)
-    count_errors.boxplot()
-
+    sns.pointplot(data=count_errors,ci="sd",estimator=np.median, color='black')
+    sns.swarmplot(data=count_errors)
     # plt.suptitle('Box plot on 17 independant short sequences from T1')
-    plt.ylabel(r'$\hat{N}-N}$')
+    plt.ylabel(r'$err_s$')
     # plt.gca().get_xaxis().set_visible(False)
     plt.tight_layout()
     plt.savefig(f'boxplot_{fps}.pdf',format='pdf')
     # plt.show()
 
-def get_count_err_mean_and_std_values(tracker_name):
+def get_count_err_long(tracker_name):
 
     results_long_part_1 = pd.read_csv(os.path.join(eval_dir_part_1,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
     all_results_long = pd.read_csv(os.path.join(eval_dir_all,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
-    all_results_shorts = pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
 
     count_errors_part_1 = results_long_part_1['IDs'][2]-results_long_part_1['GT_IDs'][2]
     count_errors_part_2 = all_results_long['IDs'][2]-all_results_long['GT_IDs'][2]
     count_errors_part_3 = all_results_long['IDs'][3]-all_results_long['GT_IDs'][3]
     count_errors_combined = count_errors_part_1 + count_errors_part_2 + count_errors_part_3
+
+    print(f'{count_errors_part_1}\n{count_errors_part_2}\n{count_errors_part_3}\n{count_errors_combined}')
+
+    return count_errors_part_1, count_errors_part_2, count_errors_part_3, count_errors_combined
+
+def get_count_err_shorts(tracker_name):
+    all_results_shorts = pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
+
+    return pd.Series((all_results_shorts['IDs'][:-1]-all_results_shorts['GT_IDs'][:-1]))
+
+def get_count_err_mean_and_std_values(tracker_name):
+
+
+    count_errors_part_1, count_errors_part_2, count_errors_part_3, count_errors_combined = get_count_err_long(tracker_name)
+    all_results_shorts = get_count_err_shorts(tracker_name)
 
     count_errors_shorts = pd.Series((all_results_shorts['IDs'][:-1]-all_results_shorts['GT_IDs'][:-1]))
     count_err_mean_p1 = round(count_errors_shorts[:16].mean(),2)
@@ -109,7 +128,7 @@ def print_ass_re_for_trackers(fps, tau):
     # plt.show()
 
     plt.savefig('ass_re_graphical.pdf',type='pdf')
-
+   
 def compute_new_fp_t(unmatched_tracker_ids):
     already_seen_tracker_ids = []
     new_fp_t = np.zeros(shape=(len(unmatched_tracker_ids)))
@@ -141,11 +160,10 @@ def plot_framewise_TPs(fps):
     plt.legend()
     plt.show()          
     
-def generate_boxplots_to_compare_tau(tau_values):
-    tracker_names = ['fairmot','fairmot_cleaned','sort'] + [f'ours_{fps}_tau_{tau}' for tau in tau_values]
-    tracker_new_names = ['FairMOT','FairMOT*','SORT'] + [f"$Ours_{tau}$" for tau in tau_values]
+def get_boxplots_for_trackers(tracker_names, tracker_new_names, ax):
 
-    all_results = {tracker_name:pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in tracker_names}
+    all_results = {tracker_name:pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) \
+        for tracker_name in tracker_names}
 
     # print(all_results)
     count_errors = pd.DataFrame({tracker_name: pd.Series((results['IDs'][:-1]-results['GT_IDs'][:-1])) \
@@ -154,14 +172,32 @@ def generate_boxplots_to_compare_tau(tau_values):
     count_errors.columns = tracker_new_names
     # ax = count_errors.boxplot(ax=ax)
     # plt.plot(count_errors.T, linestyle='dashed')
-    count_errors.boxplot()
 
-    # plt.suptitle('Box plot on 17 independant short sequences from T1')
-    plt.ylabel(r'$\hat{N}-N}$')
-    # plt.gca().get_xaxis().set_visible(False)
+    ax.set_ylabel(r'$\hat{N}-N}$')
+    sns.pointplot(data=count_errors,ci="sd",estimator=np.mean, color='black', ax=ax)
+
+def generate_boxplots_to_compare_tau():
+    
+    tau_values = [1,2,3,4,5,6,7,8,9]
+
+    fig, (ax0, ax1, ax2) = plt.subplots(1,3)
+
+    ax0.set_title('Base methods')
+    ax0.grid(True)
+
+    ax1.set_title('Ours,v0')
+    ax1.grid(True)
+
+    ax2.set_title('Ours,v1')
+    ax2.grid(True)
+
+    get_boxplots_for_trackers(['fairmot','ours_EKF_1_12fps_tau_0','fairmot_cleaned','sort',],['FairMOT','$Ours_0$','FairMOT*','SORT'], ax0)
+    get_boxplots_for_trackers([f'ours_EKF_1_{fps}_v0_tau_{tau}' for tau in tau_values],[f"{tau}" for tau in tau_values],ax1)
+    get_boxplots_for_trackers([f'ours_EKF_1_{fps}_v1_tau_{tau}' for tau in tau_values],[f"{tau}" for tau in tau_values],ax2)
+
     plt.tight_layout()
-    plt.savefig(f'boxplot_tau_{fps}.pdf',format='pdf')
-    # plt.show()
+    # plt.savefig(f'boxplot_tau_{fps}.pdf',format='pdf')
+    plt.show()
     
 def compare_with_humans(human_counts_filename, tracker_names):
 
@@ -193,23 +229,24 @@ def compare_with_humans(human_counts_filename, tracker_names):
     plt.scatter([1,2,3],tracker_results[1],  marker='o', label='SORT')
     plt.scatter([1,2,3],tracker_results[2],  marker='+', label='Ours')
     plt.scatter([1,2,3],tracker_results[3], marker='*',label='Count from video')
+    plt.ylabel('Count')
     plt.legend()
     plt.tight_layout()
     plt.savefig('boxplot_humans.pdf',format='pdf')
     # plt.show()
 
 
+
 if __name__ == '__main__':
 
     fps = 12
     tau = 'tau_6' if fps == 12 else 'tau_3'
-    tau_values = [0,2,4,6,8,10] if fps == 12 else [0,1,2,3,4,5] 
     fps = f'{fps}fps'
     eval_dir_part_1 = 'data/trackers/surfrider_part_1_only_' + fps
     eval_dir_all = 'data/trackers/surfrider_long_segments_' + fps
     eval_dir_short = 'data/trackers/surfrider_short_segments_' + fps
     long_segments_names = ['part_1_1','part_1_2','part_2','part_3']
-    compare_with_humans('comptages_auterrive2021.csv',tracker_names=['fairmot_cleaned','sort',f'ours_{fps}_{tau}'])
+    # compare_with_humans('comptages_auterrive2021.csv',tracker_names=['fairmot_cleaned','sort',f'ours_{fps}_{tau}'])
     # get_det_values(fps)
     # get_ass_re_values(f'ours_{fps}_{tau}')
     # get_count_err_mean_and_std_values(f'ours_{fps}_{tau}')
@@ -218,4 +255,7 @@ if __name__ == '__main__':
     # print_ass_re_for_trackers(fps, tau)
 
     # plot_framewise_TPs()
-    # generate_boxplots_to_compare_tau(tau_values)
+    generate_boxplots_to_compare_tau()
+
+    # get_count_err_long('ours_UKF_12fps_tau_6')
+    # get_ass_re_values('ours_EKF_order_1_12fps_tau_6')
