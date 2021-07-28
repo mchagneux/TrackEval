@@ -1,1 +1,0 @@
-python scripts/run_mot_challenge.py --GT_FOLDER data/gt/surfrider --TRACKERS_FOLDER data/trackers/surfrider --DO_PREPROC False --USE_PARALLEL True

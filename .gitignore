@@ -10,3 +10,4 @@ data/*
 error_log.txt
 *.pdf
 framewise_results/
+old_data/*
