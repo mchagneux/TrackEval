@@ -163,8 +163,8 @@ def compare_tau_performance():
     
     tau_values = [0,1,2,3,4,5,6,7,8,9]
 
-    counts = [get_count_err_long(f'ours_EKF_1_smoothed_12fps_v0_tau_{tau}')[3] for tau in tau_values]
-    count_means, count_stds = np.array([get_count_err_mean_and_std_values(f'ours_EKF_1_smoothed_12fps_v0_tau_{tau}')[-1] for tau in tau_values]).T
+    counts = [get_count_err_long(f'ours_UKF_12fps_v0_tau_{tau}')[3] for tau in tau_values]
+    # count_means, count_stds = np.array([get_count_err_mean_and_std_values(f'ours_UKF_12fps_v0_tau_{tau}')[-1] for tau in tau_values]).T
 
     fig, (ax0, ax1) = plt.subplots(1,2)
 
@@ -175,14 +175,14 @@ def compare_tau_performance():
     ax0.set_xlabel('$\\tau$')
     ax0.set_ylabel('$\hat{N}-N$')
 
-    ax1.errorbar(tau_values, count_means, count_stds, c='black')
-    ax1.hlines(y=0,linestyles='dashed',xmin=0,xmax=9)
-    ax1.set_xticks(tau_values,minor=True)
+    # ax1.errorbar(tau_values, count_means, count_stds, c='black')
+    # ax1.hlines(y=0,linestyles='dashed',xmin=0,xmax=9)
+    # ax1.set_xticks(tau_values,minor=True)
 
     # ax1.set_xlabel('$\\tau$')
     # ax1.set_ylabel('$\hat{\mu}$')
 
-    # ax1.set_axis_off()
+    ax1.set_axis_off()
 
     fig.tight_layout()
     plt.show()
@@ -246,7 +246,7 @@ if __name__ == '__main__':
     # get_det_values(fps)
     # get_ass_re_values(f'ours_{fps}_{tau}')
     # get_count_err_mean_and_std_values(f'ours_{fps}_{tau}')
-    generate_box_plots(tracker_new_names=['Ours','Ours, smoothed'])
+    # generate_box_plots(tracker_new_names=['Ours','Ours, smoothed'])
 #
     # # print_ass_re_for_trackers(fps, tau)
 
@@ -254,7 +254,7 @@ if __name__ == '__main__':
     # generate_boxplots_to_compare_tau()
 
     # get_count_err_long('ours_EKF_1_12fps_v0_tau_3')
-    # # compare_tau_performance()
+    # compare_tau_performance()
     # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_5', new_name='$Filtering + Smoothing, \\tau=5$')
     # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_6', new_name='$Filtering + Smoothing, \\tau=6$')
     # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_7', new_name='$Filtering + Smoothing, \\tau=7$')
@@ -262,6 +262,8 @@ if __name__ == '__main__':
     # generate_table_values('ours_EKF_1_12fps_v0_tau_5', new_name='$Filtering, \\tau=5$')
     # generate_table_values('ours_EKF_1_12fps_v0_tau_6', new_name='$Filtering, \\tau=6$')
     # generate_table_values('ours_EKF_1_12fps_v0_tau_7', new_name='$Filtering, \\tau=7$')
+    # print(get_count_err_long('ours_UKF_12fps_v0_tau_0'))
+    print(get_count_err_long('ours_EKF_1_12fps_v0_tau_2'))
+    print(get_count_err_long('ours_EKF_1_smoothed_12fps_v0_tau_2'))
 
-    # get_count_err_long('ours_UKF_12fps_tau_6')
     # get_ass_re_values('ours_EKF_order_1_12fps_tau_5')
