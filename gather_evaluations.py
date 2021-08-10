@@ -6,6 +6,7 @@ import pickle
 import numpy as np
 from pandas.core.base import NoNewAttributesMixin 
 import seaborn as sns 
+from collections import defaultdict
 
 _round = lambda x: 100*round(x,3)
 eval_dir_part_1 = None
@@ -44,9 +45,9 @@ def get_ass_re_values(tracker_name):
 
     return [ass_re_p1,ass_re_p2,ass_re_p3,ass_re_cb]
 
-def generate_box_plots(tracker_new_names=None):
+def generate_box_plots(tracker_names, tracker_new_names=None):
 
-    all_results = {tracker_name:pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in [f'ours_EKF_1_12fps_v0_tau_6', f'ours_EKF_1_smoothed_12fps_v0_tau_5']}
+    all_results = {tracker_name:pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in tracker_names}
 
     # print(all_results)
     count_errors = pd.DataFrame({tracker_name: pd.Series((results['IDs'][:-1]-results['GT_IDs'][:-1])) \
@@ -70,6 +71,34 @@ def generate_box_plots(tracker_new_names=None):
     plt.savefig(f'boxplot_12fps_smoothed.pdf',format='pdf')
     # plt.savegi:()
 
+def plot_errors(tracker_names, tracker_new_names=None):
+
+    all_results = {tracker_name:pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in tracker_names}
+
+    # print(all_results)
+    count_errors = pd.DataFrame({tracker_name: pd.Series((results['IDs'][:-1]-results['GT_IDs'][:-1])) \
+        for tracker_name,results in all_results.items()})
+
+    # print(all_results['sort'])
+    count_errors = count_errors
+    # count_errors_relative.drop(labels=[29],inplace=True)
+
+    # print(count_errors)
+    # fig, ax = plt.subplots(1,1,figsize=(10,10))
+    count_errors.index = all_results[tracker_names[0]]['seq'][:-1]
+    count_errors.columns = tracker_new_names
+    count_errors.plot.bar(stacked=False)
+    # plt.vlines(x=[17,24],ymin=-10,ymax=10)
+
+
+    plt.hlines(y=[0],xmin=-1,xmax=len(count_errors.index))
+    plt.ylabel('$err_s$')
+    plt.xlabel('$s$')
+    plt.xticks(np.arange(len(count_errors.index)),count_errors.index, rotation='vertical')
+    plt.tight_layout()
+    plt.show()
+    # plt.savefig('err_s_sequences.pdf',format='pdf')
+
 def get_count_err_long(tracker_name):
 
     results_long_part_1 = pd.read_csv(os.path.join(eval_dir_part_1,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
@@ -91,7 +120,6 @@ def get_count_err_shorts(tracker_name):
 def get_count_err_mean_and_std_values(tracker_name):
 
 
-    count_errors_part_1, count_errors_part_2, count_errors_part_3, count_errors_combined = get_count_err_long(tracker_name)
     count_errors_shorts = get_count_err_shorts(tracker_name)
 
     count_err_mean_p1 = round(count_errors_shorts[:16].mean(),2)
@@ -163,26 +191,26 @@ def compare_tau_performance():
     
     tau_values = [0,1,2,3,4,5,6,7,8,9]
 
-    counts = [get_count_err_long(f'ours_UKF_12fps_v0_tau_{tau}')[3] for tau in tau_values]
-    # count_means, count_stds = np.array([get_count_err_mean_and_std_values(f'ours_UKF_12fps_v0_tau_{tau}')[-1] for tau in tau_values]).T
+    # counts = [get_count_err_long(f'ours_EKF_1_12fps_v0_tau_{tau}')[3] for tau in tau_values]
+    count_means, count_stds = np.array([get_count_err_mean_and_std_values(f'ours_EKF_1_12fps_v0_tau_{tau}')[-1] for tau in tau_values]).T
 
     fig, (ax0, ax1) = plt.subplots(1,2)
 
-    ax0.scatter(tau_values, counts,c='black')
-    ax0.set_xticks(tau_values,minor=True)
-    ax0.hlines(y=0,linestyles='dashed',xmin=0,xmax=9)
+    # ax0.scatter(tau_values, counts,c='black')
+    # ax0.set_xticks(tau_values,minor=True)
+    # ax0.hlines(y=0,linestyles='dashed',xmin=0,xmax=9)
 
-    ax0.set_xlabel('$\\tau$')
-    ax0.set_ylabel('$\hat{N}-N$')
+    # ax0.set_xlabel('$\\tau$')
+    # ax0.set_ylabel('$\hat{N}-N$')
 
-    # ax1.errorbar(tau_values, count_means, count_stds, c='black')
-    # ax1.hlines(y=0,linestyles='dashed',xmin=0,xmax=9)
-    # ax1.set_xticks(tau_values,minor=True)
+    ax1.errorbar(tau_values, count_means, count_stds, c='black')
+    ax1.hlines(y=0,linestyles='dashed',xmin=0,xmax=9)
+    ax1.set_xticks(tau_values,minor=True)
 
-    # ax1.set_xlabel('$\\tau$')
-    # ax1.set_ylabel('$\hat{\mu}$')
+    ax1.set_xlabel('$\\tau$')
+    ax1.set_ylabel('$\hat{\mu}$')
 
-    ax1.set_axis_off()
+    # ax1.set_axis_off()
 
     fig.tight_layout()
     plt.show()
@@ -234,20 +262,90 @@ def generate_table_values(tracker_name, new_name):
 
     print(table)
 
+
+def read_mot_results_file(filename):
+    raw_results =  np.loadtxt(filename, delimiter=',')
+    if raw_results.ndim == 1: raw_results = np.expand_dims(raw_results,axis=0)
+    tracklets = defaultdict(list) 
+    for result in raw_results:
+        track_id = int(result[1])
+        frame_id = int(result[0])
+        left, top, width, height = result[2:6]
+        center_x = left + width/2
+        center_y = top + height/2 
+        tracklets[track_id].append((frame_id, center_x, center_y))
+
+    tracklets = list(tracklets.values())
+
+    return sorted(tracklets, key=lambda x:x[0][0])
+
+
+def generate_nb_ids_in_track(track_starts, nb_ids_array):
+    cnt=0
+    for track_start in track_starts:
+        cnt+=1
+        nb_ids_array[track_start:] = cnt
+    return nb_ids_array
+    
+def plot_evolutions_ids_for_file(tracker_names, tracker_new_names, sequences, sequence_name):
+
+    if sequences == 'long':
+        gt_dir = gt_dir_all
+        eval_dir = eval_dir_all
+
+    elif sequences == 'short':
+        gt_dir = gt_dir_short
+        eval_dir = eval_dir_short
+    
+    gt_filename = os.path.join(gt_dir,sequence_name,'gt','gt.txt')
+    tracker_filenames = [os.path.join(eval_dir,'surfrider-test',tracker_name,'data',f'{sequence_name}.txt') for tracker_name in tracker_names]
+
+    gt_tracks_starts = [track[0][0]-1 for track in read_mot_results_file(gt_filename)]
+    trackers_tracks_starts = [[track[0][0]-1 for track in read_mot_results_file(tracker_filename)] for tracker_filename in tracker_filenames]
+
+    last_frames_for_all = [gt_tracks_starts[-1]] + [tracker_tracks_starts[-1] for tracker_tracks_starts in trackers_tracks_starts]
+    frame_nbs = np.arange(max(last_frames_for_all)+1)
+
+    nb_ids_gt = generate_nb_ids_in_track(gt_tracks_starts, np.zeros_like(frame_nbs))
+    nb_ids_trackers = [generate_nb_ids_in_track(tracker_tracks_starts, np.zeros_like(frame_nbs)) for tracker_tracks_starts in trackers_tracks_starts]
+
+
+    plt.plot(nb_ids_gt, label='GT')
+    for nb_ids_tracker, tracker_new_name in zip(nb_ids_trackers,tracker_new_names):
+        plt.plot(nb_ids_tracker, label=tracker_new_name)
+    plt.xlabel('Frame $n$')
+    plt.ylabel('Number of objects up to frame $n$')
+    plt.legend()
+    plt.show()
+
+    
+
+    
+
+
+
+
+
 if __name__ == '__main__':
+
     fps = 12
     tau = 'tau_6' if fps == 12 else 'tau_3'
     fps = f'{fps}fps'
-    eval_dir_part_1 = 'external/TrackEval/data/trackers/surfrider_part_1_only_' + fps
-    eval_dir_all = 'external/TrackEval/data/trackers/surfrider_long_segments_' + fps
-    eval_dir_short = 'external/TrackEval/data/trackers/surfrider_short_segments_' + fps
+
+    gt_dir_short = f'external/TrackEval/data/gt/surfrider_short_segments_{fps}/surfrider-test' 
+    gt_dir_all = f'external/TrackEval/data/gt/surfrider_long_segments_{fps}/surfrider-test' 
+
+    eval_dir_part_1 = f'external/TrackEval/data/trackers/surfrider_part_1_only_{fps}' 
+    eval_dir_all = f'external/TrackEval/data/trackers/surfrider_long_segments_{fps}' 
+    eval_dir_short = f'external/TrackEval/data/trackers/surfrider_short_segments_{fps}' 
+
     long_segments_names = ['part_1_1','part_1_2','part_2','part_3']
     # compare_with_humans('comptages_auterrive2021.csv',tracker_names=['fairmot_cleaned','sort',f'ours_{fps}_{tau}'])
     # get_det_values(fps)
     # get_ass_re_values(f'ours_{fps}_{tau}')
     # get_count_err_mean_and_std_values(f'ours_{fps}_{tau}')
-    # generate_box_plots(tracker_new_names=['Ours','Ours, smoothed'])
-#
+    # plot_errors(['sort','ours_EKF_1_12fps_v0_tau_6'], ['SORT','$Ours_{\\tau=6}$'])
+
     # # print_ass_re_for_trackers(fps, tau)
 
     # # plot_framewise_TPs()
@@ -256,14 +354,22 @@ if __name__ == '__main__':
     # get_count_err_long('ours_EKF_1_12fps_v0_tau_3')
     # compare_tau_performance()
     # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_5', new_name='$Filtering + Smoothing, \\tau=5$')
-    # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_6', new_name='$Filtering + Smoothing, \\tau=6$')
-    # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_7', new_name='$Filtering + Smoothing, \\tau=7$')
+    # generate_table_values('fairmot_cleaned', new_name='$FairMOT*$')
 
-    # generate_table_values('ours_EKF_1_12fps_v0_tau_5', new_name='$Filtering, \\tau=5$')
+
+    # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_6', new_name='$Filtering + Smoothing, \\tau=6$')
+    # # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_7', new_name='$Filtering + Smoothing, \\tau=7$')
+
+    # # generate_table_values('ours_EKF_1_12fps_v0_tau_5', new_name='$Filtering, \\tau=5$')
+    # generate_table_values('fairmot_cleaned','FairMOT*')
+    # generate_table_values('sort', new_name='$SORT$')
     # generate_table_values('ours_EKF_1_12fps_v0_tau_6', new_name='$Filtering, \\tau=6$')
     # generate_table_values('ours_EKF_1_12fps_v0_tau_7', new_name='$Filtering, \\tau=7$')
     # print(get_count_err_long('ours_UKF_12fps_v0_tau_0'))
-    print(get_count_err_long('ours_EKF_1_12fps_v0_tau_2'))
-    print(get_count_err_long('ours_EKF_1_smoothed_12fps_v0_tau_2'))
+    # print(get_count_err_long('ours_EKF_1_12fps_v0_tau_2')
+    # print(get_count_err_long('ours_EKF_1_smoothed_12fps_v0_tau_2'))
 
-    # get_ass_re_values('ours_EKF_order_1_12fps_tau_5')
+    # get_ass_re_values('ours_EKF_order_1_12fps_tau_5'
+
+
+    plot_evolutions_ids_for_file(tracker_names=['ours_EKF_1_12fps_v0_tau_7','sort'], tracker_new_names= ['Ours', 'SORT'], sequences='short',sequence_name='part_1_segment_0')
