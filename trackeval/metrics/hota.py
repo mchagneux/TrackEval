@@ -16,7 +16,7 @@ class HOTA(_BaseMetric):
         super().__init__()
         self.plottable = True
         self.array_labels = np.arange(0.05,0.99,0.05)
-        self.integer_array_fields = ['HOTA_TP', 'HOTA_FN', 'HOTA_FP','True_IDs']
+        self.integer_array_fields = ['HOTA_TP', 'HOTA_FN', 'HOTA_FP','Correct_IDs','Redundant_IDs','False_IDs','Missing_IDs','Fused_IDs']
         self.float_array_fields = ['HOTA', 'DetA', 'AssA', 'DetRe', 'DetPr', 'AssRe', 'AssPr', 'LocA', 'RHOTA']
         self.float_fields = ['HOTA(0)', 'LocA(0)', 'HOTALocA(0)']
         self.fields = self.float_array_fields + self.integer_array_fields + self.float_fields
@@ -32,16 +32,24 @@ class HOTA(_BaseMetric):
         for field in self.float_fields:
             res[field] = 0
 
+        res['Correct_IDs'] = np.zeros((len(self.array_labels)), dtype=np.int8)
+        res['Redundant_IDs'] = np.zeros((len(self.array_labels)), dtype=np.int8)
+        res['False_IDs'] = np.zeros((len(self.array_labels)), dtype=np.int8)
+        res['Missing_IDs'] = np.zeros((len(self.array_labels)), dtype=np.int8)
+        res['Fused_IDs'] = np.zeros((len(self.array_labels)), dtype=np.int8)
+
         # Return result quickly if tracker or gt sequence is empty
         if data['num_tracker_dets'] == 0:
             res['HOTA_FN'] = data['num_gt_dets'] * np.ones((len(self.array_labels)), dtype=np.float)
             res['LocA'] = np.ones((len(self.array_labels)), dtype=np.float)
             res['LocA(0)'] = 1.0
+            res['Missing_IDs'] += data['num_gt_ids']
             return res
         if data['num_gt_dets'] == 0:
             res['HOTA_FP'] = data['num_tracker_dets'] * np.ones((len(self.array_labels)), dtype=np.float)
             res['LocA'] = np.ones((len(self.array_labels)), dtype=np.float)
             res['LocA(0)'] = 1.0
+            res['False_IDs'] += data['num_tracker_ids']
             return res
 
         # Variables counting global association
@@ -139,7 +147,9 @@ class HOTA(_BaseMetric):
 
         # Calculate association scores (AssA, AssRe, AssPr) for the alpha value.
         # First calculate scores per gt_id/tracker_id combo and then average over the number of detections.
-        actually_counted = []
+
+
+        
         for a, alpha in enumerate(self.array_labels):
             matches_count = matches_counts[a]
             ass_a = matches_count / np.maximum(1, gt_id_count + tracker_id_count - matches_count)
@@ -148,15 +158,30 @@ class HOTA(_BaseMetric):
             res['AssRe'][a] = np.sum(matches_count * ass_re) / np.maximum(1, res['HOTA_TP'][a])
             ass_pr = matches_count / np.maximum(1, tracker_id_count)
             res['AssPr'][a] = np.sum(matches_count * ass_pr) / np.maximum(1, res['HOTA_TP'][a])
-            actually_counted.append(sum([(match_count > 0).any() for match_count in matches_count.T]))
+
+            for match_gt_tracker in matches_count:
+                nb_tracks_for_gt = sum(match_gt_tracker > 0)
+
+                if nb_tracks_for_gt == 0:
+                    res['Missing_IDs'][a] += 1 
+                else:
+                    res['Correct_IDs'][a] += 1 
+                    res['Redundant_IDs'][a] += nb_tracks_for_gt - 1
+                
+            for match_tracker_gt in matches_count.T:
+                nb_gts_for_track = sum(match_tracker_gt > 0)
+                if nb_gts_for_track == 0:
+                    res['False_IDs'][a] += 1
+                else:
+                    res['Fused_IDs'][a] += nb_gts_for_track - 1
+
+
+
 
         # Calculate final scores
         res['LocA'] = np.maximum(1e-10, res['LocA']) / np.maximum(1e-10, res['HOTA_TP'])
         res = self._compute_final_fields(res)
-        res['True_IDs'] = np.array(actually_counted)
-        # output_filename = f"n_true_{data['tracker']}_{data['seq']}.pickle"
-        # with open(output_filename,'wb') as f: 
-        #     pickle.dump(actually_counted, f)
+
         return res 
 
     def combine_sequences(self, all_res):
