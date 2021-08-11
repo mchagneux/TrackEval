@@ -80,21 +80,28 @@ def plot_errors(tracker_names, tracker_new_names=None):
         for tracker_name,results in all_results.items()})
 
     # print(all_results['sort'])
-    count_errors = count_errors
+    # count_errors = count_errors
+    count_errors.index = all_results[tracker_names[0]]['seq'][:-1]
+    count_errors.columns = tracker_new_names
+    # idxmins = count_errors.abs().idxmin(axis=1)
+    
+
+
     # count_errors_relative.drop(labels=[29],inplace=True)
 
     # print(count_errors)
     # fig, ax = plt.subplots(1,1,figsize=(10,10))
-    count_errors.index = all_results[tracker_names[0]]['seq'][:-1]
-    count_errors.columns = tracker_new_names
+
     count_errors.plot.bar(stacked=False)
     # plt.vlines(x=[17,24],ymin=-10,ymax=10)
-
+    # plt.plot(idxmins)
 
     plt.hlines(y=[0],xmin=-1,xmax=len(count_errors.index))
     plt.ylabel('$err_s$')
     plt.xlabel('$s$')
     plt.xticks(np.arange(len(count_errors.index)),count_errors.index, rotation='vertical')
+    plt.grid(True,axis='y')
+
     plt.tight_layout()
     plt.show()
     # plt.savefig('err_s_sequences.pdf',format='pdf')
@@ -262,7 +269,6 @@ def generate_table_values(tracker_name, new_name):
 
     print(table)
 
-
 def read_mot_results_file(filename):
     raw_results =  np.loadtxt(filename, delimiter=',')
     if raw_results.ndim == 1: raw_results = np.expand_dims(raw_results,axis=0)
@@ -278,7 +284,6 @@ def read_mot_results_file(filename):
     tracklets = list(tracklets.values())
 
     return sorted(tracklets, key=lambda x:x[0][0])
-
 
 def generate_nb_ids_in_track(track_starts, nb_ids_array):
     cnt=0
@@ -318,13 +323,7 @@ def plot_evolutions_ids_for_file(tracker_names, tracker_new_names, sequences, se
     plt.legend()
     plt.show()
 
-    
-
-    
-
-
-
-
+        
 
 if __name__ == '__main__':
 
@@ -344,7 +343,7 @@ if __name__ == '__main__':
     # get_det_values(fps)
     # get_ass_re_values(f'ours_{fps}_{tau}')
     # get_count_err_mean_and_std_values(f'ours_{fps}_{tau}')
-    # plot_errors(['sort','ours_EKF_1_12fps_v0_tau_6'], ['SORT','$Ours_{\\tau=6}$'])
+    # plot_errors(['fairmot_cleaned','sort','ours_EKF_1_12fps_v0_tau_6','ours_EKF_1_12fps_v0_tau_7'], ['FairMOT*','SORT','$Ours_{\\tau=6}$','$Ours_{\\tau=7}$'])
 
     # # print_ass_re_for_trackers(fps, tau)
 
@@ -352,7 +351,7 @@ if __name__ == '__main__':
     # generate_boxplots_to_compare_tau()
 
     # get_count_err_long('ours_EKF_1_12fps_v0_tau_3')
-    # compare_tau_performance()
+    compare_tau_performance()
     # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_5', new_name='$Filtering + Smoothing, \\tau=5$')
     # generate_table_values('fairmot_cleaned', new_name='$FairMOT*$')
 
@@ -372,4 +371,4 @@ if __name__ == '__main__':
     # get_ass_re_values('ours_EKF_order_1_12fps_tau_5'
 
 
-    plot_evolutions_ids_for_file(tracker_names=['ours_EKF_1_12fps_v0_tau_7','sort'], tracker_new_names= ['Ours', 'SORT'], sequences='short',sequence_name='part_1_segment_0')
+    # plot_evolutions_ids_for_file(tracker_names=['ours_EKF_1_12fps_v0_tau_7','sort'], tracker_new_names= ['Ours', 'SORT'], sequences='short',sequence_name='part_1_segment_0')

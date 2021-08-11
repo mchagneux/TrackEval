@@ -17,12 +17,14 @@ part_1_segment_14
 part_1_segment_15
 part_1_segment_16
 part_2_segment_0
+part_2_segment_1
 part_2_segment_2
 part_2_segment_3
 part_2_segment_4
 part_2_segment_5
 part_2_segment_6
 part_3_segment_0
+part_3_segment_1
 part_3_segment_2
 part_3_segment_3
 part_3_segment_4

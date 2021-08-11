@@ -85,6 +85,8 @@ class _BaseMetric(ABC):
                 vals.append("{0:1.5g}".format(100 * float(results_[h])))
             elif h in self.integer_fields:
                 vals.append("{0:d}".format(int(results_[h])))
+            # elif h == 'True_IDs':
+            #     vals.append(str(int(results_[h])))
             else:
                 raise NotImplementedError("Summary function not implemented for this field type.")
         return vals
