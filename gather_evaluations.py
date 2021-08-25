@@ -6,7 +6,8 @@ import numpy as np
 import seaborn as sns 
 from collections import defaultdict
 
-_round = lambda x: 100*round(x,3)
+_round_100 = lambda x: 100*round(x,2)
+_round = lambda x: round(x,2)
 eval_dir_part_1 = None
 eval_dir_all = None
 eval_dir_short = None
@@ -69,12 +70,12 @@ def generate_box_plots(tracker_names, tracker_new_names=None):
     plt.savefig(f'boxplot_12fps_smoothed.pdf',format='pdf')
     # plt.savegi:()
 
-def plot_errors(tracker_names, tracker_new_names=None):
+def plot_errors(tracker_names, tracker_new_names=None, last_index=-1):
 
-    all_results = {tracker_name:pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in tracker_names}
+    all_results = {tracker_name: pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in tracker_names}
 
-    # print(all_results)
-    predicted_counts = {k:v.loc[:,['Correct_IDs___50','Redundant_IDs___50','False_IDs___50','Missing_IDs___50','Fused_IDs___50']].iloc[:-1] for k,v in all_results.items()}
+    predicted_counts = {k:v.loc[:,['Correct_IDs___50','Redundant_IDs___50','False_IDs___50','Missing_IDs___50']].iloc[:last_index] for k,v in all_results.items()}
+
     # predicted_counts['GT_IDs'] = all_results[tracker_names[0]].loc[:,['GT_IDs']].iloc[:-1]
     # print(all_results['sort'])
     # count_errors.index = all_results[tracker_names[0]]['seq'][:-1]
@@ -87,17 +88,20 @@ def plot_errors(tracker_names, tracker_new_names=None):
 
     # # print(count_errors)
     # # fig, ax = plt.subplots(1,1,figsize=(10,10))
-    positions = [x for x in range(len(predicted_counts.values()))]
+
+    positions = [len(predicted_counts.values())-x-3.5 for x in range(len(predicted_counts.values()))]
+
     fig, ax = plt.subplots()
+
     for (position, v) in zip(positions, predicted_counts.values()):
-        v.index = all_results[tracker_names[0]]['seq'][:-1]
-        v.columns = ['Correct IDs', 'Redundant IDs', 'False IDs','Missing IDs','Fused IDs']
-        v.plot.bar(stacked=True, position=position, ax=ax, width=0.1, color=['green','orange','red','blue','purple'])
+        v.index = all_results[tracker_names[0]]['seq'][:last_index]
+        v.columns = ['Correct','Redundant','False','Missing']
+        v.plot.bar(stacked=True, position=position, ax=ax, width=0.2, color=['green','orange','red','blue'], edgecolor='black',linewidth=0.1)
     
-    gt_ids = all_results[tracker_names[0]].loc[:,['GT_IDs']].iloc[:-1]
-    gt_ids.index = all_results[tracker_names[0]]['seq'][:-1]
-    gt_ids.columns = ['Ground truth IDs']
-    gt_ids.plot.bar(position=positions[-1]+1,ax=ax,width=0.1,color='black')
+    gt_ids = all_results[tracker_names[0]].loc[:,['GT_IDs']].iloc[:last_index]
+    # gt_ids.index = all_results[tracker_names[0]]['seq'][:last_index]
+    gt_ids.columns = ['Ground truth']
+    gt_ids.plot.bar(position=len(predicted_counts.values())-2.5,ax=ax,width=0.2,color='black')
 
 
     # # plt.vlines(x=[17,24],ymin=-10,ymax=10)
@@ -111,10 +115,14 @@ def plot_errors(tracker_names, tracker_new_names=None):
 
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
+    plt.xlabel('$s$')
+    plt.ylabel('$Count$')
+
     plt.legend(by_label.values(), by_label.keys())
     plt.tight_layout()
-    plt.show()
-    # plt.savefig('err_s_sequences.pdf',format='pdf')
+    plt.autoscale(True)
+    # plt.show()
+    plt.savefig('details_errors_ours_against_others.pdf',format='pdf')
 
 def get_count_err_long(tracker_name):
 
@@ -268,13 +276,75 @@ def compare_with_humans(human_counts_filename, tracker_names):
     plt.savefig('boxplot_humans.pdf',format='pdf')
     # plt.show()
 
-def generate_table_values(tracker_name, new_name):
+def table_results_short(results, index_start=0, index_stop=-1):
 
-    ass_re_values = get_ass_re_values(tracker_name)
-    count_mean_std = get_count_err_mean_and_std_values(tracker_name)
-    count_errors = get_count_err_long(tracker_name)
+    results = results.loc[:,['Correct_IDs___50','Redundant_IDs___50','False_IDs___50','Missing_IDs___50','Fused_IDs___50', 'GT_IDs']].iloc[index_start:index_stop]
 
-    table = f"\\multirow{{ 3 }}{{*}}  {{{new_name}}}  &  Part 1  & {ass_re_values[0]} & {count_errors[0]} & {count_mean_std[0][0]} & {count_mean_std[0][1]} \\\ \n \\hhline{{~~~~~}}  &  Part 2  & {ass_re_values[1]} & {count_errors[1]} & {count_mean_std[1][0]} & {count_mean_std[1][1]} \\\ \n \hhline{{~~~~~}}  &  Part 3   & {ass_re_values[2]} & {count_errors[2]} & {count_mean_std[2][0]} & {count_mean_std[2][1]} \\\ \n \hhline{{~~~~~}}  &  Combined  & {ass_re_values[3]} & {count_errors[3]} & {count_mean_std[3][0]} & {count_mean_std[3][1]}\\\ \n   \hline \\[-1.8ex]"
+    results.columns = ['correct','redundant','false','missing','mingled','gt']
+
+    correct = results['correct']
+    redundant = results['redundant']
+    false = results['false']
+    missing = results['missing']
+    # mingled = results['mingled'] 
+    gt = results['gt']
+
+    diff_gt_correct = correct - gt 
+
+    return [[f'{diff_gt_correct.mean():.1f}',f'{diff_gt_correct.std():.1f}'],
+            [f'{false.mean():.1f}', f'{false.std():.1f}'],
+            [f'{missing.mean():.1f}', f'{missing.std():.1f}'],
+            [f'{redundant.mean():.1f}', f'{redundant.std():.1f}'],
+            [f'{correct.sum()}', f'{false.sum()}',f'{missing.sum()}',f'{redundant.sum()}',f'{gt.sum()}']]
+
+def get_table_values_averages(tracker_name, tracker_new_name):
+
+    indices = [0,17,24,38]
+
+    results_short_sequences = []
+
+    results_short = pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
+
+    results_p1_long =   pd.read_csv(os.path.join(eval_dir_part_1,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
+    results_long =  pd.read_csv(os.path.join(eval_dir_all,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
+
+    ass_re_p1 = f"{100*results_p1_long.loc[2,'AssRe___50']:.1f}"
+    ass_re_p2 = f"{100*results_long.loc[2,'AssRe___50']:.1f}"
+    ass_re_p3 = f"{100*results_long.loc[3,'AssRe___50']:.1f}"
+    # ass_re_cb = _round(results_long.loc[4,'AssRe___50'])
+
+    
+    for (index_start, index_stop) in zip(indices[:-1],indices[1:]):
+
+        results_short_sequences.append(table_results_short(results_short, index_start, index_stop))
+    
+    results_short_sequences.append(table_results_short(results_short))
+
+    table = f"\\multirow{{ 3 }}{{*}}  {{{tracker_new_name}}} & S1 & {ass_re_p1} & {results_short_sequences[0][0][0]} ({results_short_sequences[0][0][1]}) & {results_short_sequences[0][1][0]} ({results_short_sequences[0][1][1]}) & {results_short_sequences[0][2][0]} ({results_short_sequences[0][2][1]}) & {results_short_sequences[0][3][0]} ({results_short_sequences[0][3][1]}) \\\ \n"
+    
+    table += f"\\hhline{{~~~~~}}  &  S2  & {ass_re_p2} & {results_short_sequences[1][0][0]} ({results_short_sequences[1][0][1]}) & {results_short_sequences[1][1][0]} ({results_short_sequences[1][1][1]}) & {results_short_sequences[1][2][0]} ({results_short_sequences[1][2][1]}) & {results_short_sequences[1][3][0]} ({results_short_sequences[1][3][1]}) \\\ \n"
+
+    table += f"\hhline{{~~~~~}}  &  S3  & {ass_re_p3} & {results_short_sequences[2][0][0]} ({results_short_sequences[2][0][1]}) & {results_short_sequences[2][1][0]} ({results_short_sequences[2][1][1]}) & {results_short_sequences[2][2][0]} ({results_short_sequences[2][2][1]}) & {results_short_sequences[2][3][0]} ({results_short_sequences[2][3][1]}) \\\ \n"
+    
+    table += f"\hhline{{~~~~~}} & Overall & - & {results_short_sequences[3][0][0]} ({results_short_sequences[3][0][1]}) & {results_short_sequences[3][1][0]} ({results_short_sequences[3][1][1]}) & {results_short_sequences[3][2][0]} ({results_short_sequences[3][2][1]}) & {results_short_sequences[3][3][0]} ({results_short_sequences[3][3][1]}) \\\ \n\hline \\\[-1.8ex]"
+
+    print(table)
+
+def get_table_values_absolute(tracker_names, tracker_new_names):
+    
+    indices = [0,17,24,38]
+
+    table = f""
+    for sequence_name, index_start, index_stop in zip(['S1','S2','S3'],indices[:-1],indices[1:]):
+        results_for_sequence = []
+        for i, tracker_name in enumerate(tracker_names):
+            results_for_tracker = pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv'))
+            results_for_sequence.append(table_results_short(results_for_tracker, index_start, index_stop)[-1])
+
+        table += f"\\multirow{{ 3 }}{{*}}  {{{sequence_name}}}  &  {tracker_new_names[0]} & {results_for_sequence[0][0]} & {results_for_sequence[0][1]} & {results_for_sequence[0][2]} & {results_for_sequence[0][3]} \\\ \n" 
+        table += f"\\hhline{{~~~~~}}   &  {tracker_new_names[1]} & {results_for_sequence[1][0]} & {results_for_sequence[1][1]} & {results_for_sequence[1][2]} & {results_for_sequence[1][3]} \\\ \n"
+        table += f"\\hhline{{~~~~~}}   &  {tracker_new_names[2]} & {results_for_sequence[2][0]} & {results_for_sequence[2][1]} & {results_for_sequence[2][2]} & {results_for_sequence[2][3]} \\\ \n"
+        table += f"\\hhline{{~~~~~}}  &  Ground truth & {results_for_sequence[0][4]} & 0 & 0 & 0 \\\ \n\hline \\\[-1.8ex] \n"
 
     print(table)
 
@@ -354,10 +424,17 @@ if __name__ == '__main__':
 
     long_segments_names = ['part_1_1','part_1_2','part_2','part_3']
 
+    # get_table_values('fairmot','FairMOT')
+    # get_table_values('fairmot_cleaned','FairMOT*')
+    # get_table_values('sort','SORT')
+    # get_table_values('ours_EKF_1_12fps_v0_tau_6','Ours')
+
+    get_table_values_absolute(['fairmot_cleaned','sort','ours_EKF_1_12fps_v0_tau_6'],['FairMOT*','SORT','Ours'])
+
     # compare_with_humans('comptages_auterrive2021.csv',tracker_names=['fairmot_cleaned','sort',f'ours_{fps}_{tau}'])
 
-    plot_errors(['ours_EKF_1_12fps_v0_tau_6','sort','fairmot_cleaned'])
-    plot_errors(['ours_EKF_1_12fps_v0_tau_0','ours_EKF_1_12fps_v0_tau_6'])
+    # plot_errors(['ours_EKF_1_12fps_v0_tau_6','sort','fairmot_cleaned'], last_index=17)
+    # plot_errors(['ours_EKF_1_12fps_v0_tau_0','ours_EKF_1_12fps_v0_tau_6'])
 
 
     # generate_boxplots_to_compare_tau()
@@ -368,7 +445,7 @@ if __name__ == '__main__':
     # generate_table_values('fairmot_cleaned', new_name='$FairMOT*$')
     # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_6', new_name='$Filtering + Smoothing, \\tau=6$')
     # generate_table_values('ours_EKF_1_smoothed_12fps_v0_tau_7', new_name='$Filtering + Smoothing, \\tau=7$')
-    # generate_table_values('ours_EKF_1_12fps_v0_tau_5', new_name='$Filtering, \\tau=5$')
+    # generate_table_values('ours_EKF_1_12fps_v0_tau_6', new_name='$Filtering, \\tau=5$')
     # generate_table_values('fairmot','FairMOT')
     # generate_table_values('fairmot_cleaned','FairMOT*')
     # generate_table_values('sort', new_name='$SORT$')
