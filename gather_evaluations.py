@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import pickle 
 import numpy as np
-import seaborn as sns 
+# import seaborn as sns 
 from collections import defaultdict
 
 eval_dir_part_1 = None
@@ -279,7 +279,9 @@ if __name__ == '__main__':
     # get_table_values('fairmot','$FairMOT$')
     # get_table_values('fairmot_cleaned','$FairMOT^{*}$')
     # get_table_values('sort','$SORT$')
-    # get_table_values('ours_EKF_1_12fps_v2_7_tau_5','$Ours$')
+    get_table_values('ours_EKF_1_12fps_v2_7_tau_5','$Ours$')
+    get_table_values('ours_UKF_12fps_v2_7_tau_5','$Ours$')
+    get_table_values('ours_SMC_20_12fps_v2_7_tau_5','$Ours$')
 
 
     # get_count_errors('fairmot_cleaned')
