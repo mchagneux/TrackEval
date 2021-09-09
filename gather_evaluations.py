@@ -5,7 +5,9 @@ import pickle
 import numpy as np
 # import seaborn as sns 
 from collections import defaultdict
-
+from matplotlib.ticker import MaxNLocator
+plt.rcParams.update({
+    "text.usetex": True})
 eval_dir_part_1 = None
 eval_dir_all = None
 eval_dir_short = None
@@ -55,11 +57,11 @@ def get_ass_re_values(tracker_name):
 
     return [ass_re_p1,ass_re_p2,ass_re_p3,ass_re_cb]
 
-def plot_errors(tracker_names, tracker_new_names=None, last_index=-1, filename='detailed_errors'):
+def plot_errors(tracker_names, tracker_new_names=None, first_index=0, last_index=-1, filename='detailed_errors'):
 
     all_results = {tracker_name: pd.read_csv(os.path.join(eval_dir_short,'surfrider-test',tracker_name,'pedestrian_detailed.csv')) for tracker_name in tracker_names}
 
-    predicted_counts = {k:v.loc[:,['Correct_IDs___50','Missing_IDs___50','Redundant_IDs___50','False_IDs___50']].iloc[:last_index] for k,v in all_results.items()}
+    predicted_counts = {k:v.loc[:,['Missing_IDs___50','False_IDs___50','Redundant_IDs___50']].iloc[first_index:last_index] for k,v in all_results.items()}
 
     # predicted_counts['GT_IDs'] = all_results[tracker_names[0]].loc[:,['GT_IDs']].iloc[:-1]
     # print(all_results['sort'])
@@ -74,25 +76,27 @@ def plot_errors(tracker_names, tracker_new_names=None, last_index=-1, filename='
     # # print(count_errors)
     # # fig, ax = plt.subplots(1,1,figsize=(10,10))
 
-    positions = [len(predicted_counts.values())-x-3.5 for x in range(len(predicted_counts.values()))]
+    positions = [len(predicted_counts.values())-x-4 for x in range(len(predicted_counts.values()))]
 
     fig, ax = plt.subplots()
 
     for (position, v) in zip(positions, predicted_counts.values()):
-        v.index = all_results[tracker_names[0]]['seq'][:last_index]
-        v.columns = ['Correct','Missing','Redundant','False']
-        v.plot.bar(stacked=True, position=position, ax=ax, width=0.2, color=['green','silver','orange','red'], edgecolor='black',linewidth=0.1)
+        # v.index = all_results[tracker_names[0]]['seq'][:last_index]
+        v.columns = ['$\mathsf{\hat{N}_{mis}}$','$\mathsf{\hat{N}_{false}}$','$\mathsf{\hat{N}_{red}}$']
+        v.iloc[:,0] = - v.iloc[:,0]
+        v.plot.bar(stacked=True, position=position, ax=ax, width=0.2, color=['silver','red','orange'], edgecolor='black',linewidth=0.1)
     
-    gt_ids = all_results[tracker_names[0]].loc[:,['GT_IDs']].iloc[:last_index]
-    gt_ids.index = all_results[tracker_names[0]]['seq'].iloc[:last_index]
-    gt_ids.columns = ['Ground truth']
-    gt_ids.plot.bar(position=len(predicted_counts.values())-2.5,ax=ax,width=0.2,color='black')
+    # gt_ids = all_results[tracker_names[0]].loc[:,['GT_IDs']].iloc[first_index:last_index]
+    # # gt_ids.index = all_results[tracker_names[0]]['seq'].iloc[:last_index]
+    # gt_ids.columns = ['$N$']
+    # gt_ids.plot.bar(position=len(predicted_counts.values())-2.5,ax=ax,width=0.2,color='black')
 
 
     # # plt.vlines(x=[17,24],ymin=-10,ymax=10)
     # # plt.plot(idxmins)
 
-    # plt.hlines(y=[0],xmin=-1,xmax=len(count_errors.index))
+    plt.hlines(y=[0],xmin=0,xmax=len(v.index),color='black')
+    plt.vlines(x=np.arange(len(v.index)+1),ymin=-9,ymax=9,linestyles='dotted',color='black',linewidth=0.2)
     # plt.ylabel('$err_s$')
     # plt.xlabel('$s$')
     # plt.xticks(np.arange(len(count_errors.index)),count_errors.index, rotation='vertical')
@@ -100,15 +104,23 @@ def plot_errors(tracker_names, tracker_new_names=None, last_index=-1, filename='
 
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
-    plt.xlabel('$Sequence$')
-    plt.ylabel('$Count$')
+    # ax.get_legend().remove()
+    # ax.set_xticks()
+    ax.get_xaxis().set_visible(False)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_yticklabels([abs(x) for x in ax.get_yticks()])
+    # plt.xlabel('$Sequence$')
+    # plt.ylabel('$Count$')
     plt.legend(by_label.values(), by_label.keys())
     plt.grid(False)
-
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    # ax.spines['left'].set_visible(False)
     plt.tight_layout()
     plt.autoscale(True)
     # plt.show()
-    plt.savefig(f'{filename}.pdf',format='pdf')
+    plt.savefig(f'{filename}.svg',format='svg')
 
 def get_summary(results, index_start=0, index_stop=-1):
 
@@ -162,12 +174,12 @@ def get_ass_pre_values(tracker_name):
 
 def table_values_for_sequence(summaries, sequence_name):
     summary = summaries[sequence_name]
-    table_values = f"${sequence_name}$ " + \
-                   f"& " + \
-                   f"{summary['ass_re_cb']} ({summary['ass_re_std']}) & " + \
-                   f"{summary['missing']} ({summary['missing_std']}) & " + \
-                   f"{summary['false']} ({summary['false_std']}) & " + \
-                   f"{summary['redundant']} ({summary['redundant_std']}) & \\\ \n\hhline{{~~~~~}} & "
+
+    table_values = f"{sequence_name} & " + \
+                   f"{summary['ass_re_cb']} & " + \
+                   f"{summary['missing']} ({summary['missing_mean']}/{summary['missing_std']}) & " + \
+                   f"{summary['false']} ({summary['false_mean']}/{summary['false_std']}) & " + \
+                   f"{summary['redundant']} ({summary['redundant_mean']}/{summary['redundant_std']}) \\\ \n\hhline{{~~~~~}} & "
 
     return table_values
 
@@ -184,7 +196,7 @@ def get_table_values(tracker_name, tracker_new_name):
 
     for sequence_name in sequence_names:
         table += table_values_for_sequence(summaries, sequence_name)
-    table += table_values_for_sequence(summaries, 'All')[:-17] + "\hline \\\[-1.8ex]"
+    table += table_values_for_sequence(summaries, 'All')[:-17] + "\n\hline \\\[-1.8ex]"
     
     print(table)
 
@@ -214,7 +226,6 @@ def read_mot_results_file(filename):
 
     return sorted(tracklets, key=lambda x:x[0][0])
 
-
 def hyperparameters():
     tau_values = [i for i in range(4,10)]
     versions = ['v0','v2_3','v2_5','v2_7']
@@ -239,24 +250,23 @@ def hyperparameters():
         ax0.scatter(tau_values, n_missing, label=version)
         ax0.plot(tau_values, n_missing, label=version, linestyle='dashed')
         # ax0.set_xlabel('$\\tau$')
-        ax0.set_ylabel('$N_{missing}$')
+        ax0.set_ylabel('$\mathsf{\hat{N}_{mis}}$')
 
         ax1.scatter(tau_values, n_false, label=version)
         ax1.plot(tau_values, n_false, label=version, linestyle='dashed')
 
         # ax1.set_xlabel('$\\tau$')
-        ax1.set_ylabel('$N_{incorrect}$')
-
+        ax1.set_ylabel('$\mathsf{\hat{N}_{false}}$')
         ax2.scatter(tau_values, n_redundant, label=version)
         ax2.plot(tau_values, n_redundant, label=version, linestyle='dashed')
         ax2.set_xlabel('$\\tau$')
-        ax2.set_ylabel('$N_{redundant}$')
+        ax2.set_ylabel('$\mathsf{\hat{N}_{red}}$')
     # handles, labels = ax2.get_legend_handles_labels()
     # fig.legend(handles, labels, loc='upper center')
     # plt.autoscale(True)
 
     plt.tight_layout()
-    plt.savefig('comparison.pdf',format='pdf')
+    plt.savefig('comparison.svg',format='svg')
     
 if __name__ == '__main__':
 
@@ -276,12 +286,12 @@ if __name__ == '__main__':
     # # get_table_values_averages('sort','SORT')
 
 
-    # get_table_values('fairmot','$FairMOT$')
-    # get_table_values('fairmot_cleaned','$FairMOT^{*}$')
-    # get_table_values('sort','$SORT$')
-    get_table_values('ours_EKF_1_12fps_v2_7_tau_5','$Ours$')
-    get_table_values('ours_UKF_12fps_v2_7_tau_5','$Ours$')
-    get_table_values('ours_SMC_20_12fps_v2_7_tau_5','$Ours$')
+    # get_table_values('fairmot','FMOT')
+    # get_table_values('fairmot_cleaned','FMOT*')
+    # get_table_values('sort','SORT')
+    get_table_values('ours_EKF_1_12fps_v2_7_tau_5','Ours')
+    get_table_values('ours_UKF_12fps_v2_7_tau_5','$UKF$')
+    get_table_values('ours_SMC_20_12fps_v2_7_tau_5','$SMC$')
 
 
     # get_count_errors('fairmot_cleaned')
@@ -304,7 +314,7 @@ if __name__ == '__main__':
     # compare_with_humans('comptages_auterrive2021.csv',tracker_names=['fairmot_cleaned','sort',f'ours_{fps}_{tau}'])
 
     # plot_errors(['ours_EKF_1_12fps_v2_7_tau_5','sort','fairmot_cleaned'], last_index=indices[1])
-    # plot_errors(['ours_EKF_1_12fps_v2_5_tau_6','sort','fairmot_cleaned'], filename='last_detailed_errors')
+    # plot_errors(['ours_EKF_1_12fps_v2_5_tau_6','sort','fairmot_cleaned'], first_index=indices[1],filename='last_detailed_errors')
 
     # tau_values = [i for i in range(1,10)]
     # versions = ['v2_5','v2_7']
@@ -313,5 +323,5 @@ if __name__ == '__main__':
     #     # plot_errors(tracker_names,filename=version)
     #     optimal_tau(tracker_names,filename=version)
 
-    hyperparameters()
+    # hyperparameters()
 
